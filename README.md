@@ -113,7 +113,7 @@ memoizedState 保存当前 hook 的值
 
 在状态更新时会调用[dispatchAction](https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L1662)
 
-以下简化`dispatchAction`去理解
+1. 以下简化`dispatchAction`去理解
 
 ```js
 function dispatchAction(queue, action) {
@@ -137,7 +137,24 @@ function dispatchAction(queue, action) {
 }
 ```
 
-update 数据结构，action 为当前需要更新的值或方法，next 指向下一次同一个状态更新的，而更新会放到`ueue.pending`里，形成一个环形链表，好处就是链表的第一个和最后一个是相等，并且第一个为最新的更新调用，这样就可以同一个状态同时更新多个都有在链表里保存并调用
+update 数据结构，action 为当前需要更新的值或方法，next 指向下一次同一个状态更新的，而更新会放到`queue.pending`里，形成一个环形链表，好处就是链表的第一个和最后一个是相等，并且第一个为最新的更新调用，这样就可以同一个状态同时更新多个都有在链表里保存并调用
+
+如:
+
+```
+// 第一次
+update1->update1
+// 第二次
+update2->update1->update2
+// 第三次
+update3->update1->update2->update3
+// 第四次
+update4->update1->update2->update3->update4
+```
+
+因此状态的更新都可以先收集到这里，到后续在更新
+
+2. 简化版[useState](https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L710)状态更新，真实的源码更新比这个复杂，需要考虑的情况比较多，这里这个只能满足了解核心的更新原理
 
 ```js
 // 获取当前的state
@@ -161,3 +178,88 @@ if (hook.queue.pending) {
 // 保存当前最新状态到state里
 hook.memoizedState = baseState;
 ```
+
+当我们触发`setState`时会触发`dispatchAction`把需要更新的状态保存在`hook.queue.pending`里，然后收集批量更新，当然如果状态的更新在异步里，只能立刻更新每个状态，而每次的更新状态都在重新调用组件方法，那么它就可以走`useState`的 update，而更新的大概过程就如上面的简化版
+
+而 hook 的更新在代码效果上也是异步更新，但这是在没有在异步里更新状态情况下，在同步里，调用了`setState`后直接获取最新`state`，是不可能的，获取的是旧值
+
+个人经验所得，如果涉及到界面的状态更新就用`useState`，否则可以考虑使用`useRef`，这样就可以实时获取到最新的更新值
+
+## useReducer
+
+useState 的实现与 useReducer 是差不多的，mountReducer 与 mountState 的实现逻辑是类似的，而 updateState 的内部处理部分逻辑后直接调用 updateReducer 来实现状态的更新
+
+所以大致可以认为 useState 的实现就是基于 useReducer
+
+## useEffect
+
+useEffect 第一个参数函数是异步调用的，在组件渲染后，而使用的异步的方式是[MessageChannel](https://developer.mozilla.org/zh-CN/docs/Web/API/MessageChannel)
+
+Channel Messaging API 的 MessageChannel 接口允许我们创建一个新的消息通道，并通过它的两个 MessagePort 属性发送数据。
+
+而 useEffect 的里的第一个参数的函数返回值会在每次执行前执行一次，主要的目前在里面进行清除上一次操作的副作用，如定时器
+
+memoizedState 保存包含 useEffect 回调函数、依赖项等的链表数据结构[effect](https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L1181)
+
+effect 链表同时会保存在 fiber.updateQueue 中
+
+了解下 useEffect 在`postMessage`异步后的工作原理
+
+1. 执行[flushPassiveEffects](https://github.com/facebook/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberWorkLoop.old.js#L2458)设置优先级，然后再执行[flushPassiveEffectsImpl](https://github.com/facebook/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberWorkLoop.old.js#L2532)
+
+2. `flushPassiveEffectsImpl`内部会根据[pendingPassiveHookEffectsUnmount](https://github.com/facebook/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberWorkLoop.old.js#L2573)先调用所有待处理的被动效果销毁函数`destroy`，在调用任何被动效果创建函数`create`之前，否则，同级组件中的效果可能会相互干扰。例如 一个组件中的 destroy 函数可能会无意中覆盖 ref，由另一个组件中的 create 函数设置的值。useLayoutEffect 具有相同的约束效果，所以第一件事就是调用所有的销毁函数。
+
+3. `flushPassiveEffectsImpl`在调用完销毁函数`destroy`后就会根据[pendingPassiveHookEffectsMount](https://github.com/facebook/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberWorkLoop.old.js#L2633)遍历执行对应 effect 的回调函数`create`。
+
+4. 总结:
+   而 useEffect 会先调用所有的销毁函数，然后再顺序调用所有副作用函数
+
+## useLayoutEffect
+
+useLayoutEffect 与 useEffect 差不多，但它没有异步调用，而是组件渲染后直接同步调用
+
+## useRef
+
+也分为[mountRef](https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L1208)与[updateRef](https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L1218)，但这个就简单很多了
+
+就一个`{current: initialValue}`结构，所以我们每次使用时都要`xxx.current`对它赋值，利用对象引入关系进行储存数据，所以它不会更新视图，但能实时保存数据
+
+而 update 时直接从 updateWorkInProgressHook 里获取到 hook 把 hook.memoizedState 返回。
+
+如:
+
+```js
+const aaa = useRef(1);
+
+aaa.current = 222;
+```
+
+## useMemo
+
+[mountMemo](https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L1427)与[updateMemo](https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L1438)，hook 都会调用 mountWorkInProgressHook 与 updateWorkInProgressHook 获取当前 hook，而 useMemo 的实现很简单，就是把传入的第一个参数的函数返回值与第二参数依赖项保存在 hook 的 memoizedState 里，然后 useMemo 返回当前的 nextValue，而更新时会先比较依赖项是否有变化，有重新调用第一个参数的函数，没有变化就返回 hook.memoizedState 的值，而依赖项的比较使用的是`Object.is`API
+
+源码:
+
+```js
+hook.memoizedState = [nextValue, nextDeps];
+```
+
+## useCallback
+
+它的实现与 useMemo 差不多，只是保存在 memoizedState 的第一个值是 callback
+
+```js
+hook.memoizedState = [callback, nextDeps];
+```
+
+## 总结
+
+基本所有的 hook 的值都会保存在 memoizedState 里，但有些是没有 memoizedState 的，如 useContext
+
+而获取的当前 hook 都会调用 [mountWorkInProgressHook](https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L545) 与 [updateWorkInProgressHook](https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L566)，分别对应挂载时与更新时的调用
+
+而以上的 hook 已经满足大部分开发要求了，就算有新的 hook 出现，差不多也是基于以上的能力进行组装的
+
+
+[实验例子](./src/App.js)
+[简单版hook](./src/HookTest.js)
