@@ -236,7 +236,7 @@ aaa.current = 222;
 
 ## useMemo
 
-[mountMemo](https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L1427)与[updateMemo](https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L1438)，hook 都会调用 mountWorkInProgressHook 与 updateWorkInProgressHook 获取当前 hook，而 useMemo 的实现很简单，就是把传入的第一个参数的函数返回值与第二参数依赖项保存在 hook 的 memoizedState 里，然后 useMemo 返回当前的 nextValue，而更新时会先比较依赖项是否有变化，有重新调用第一个参数的函数，没有变化就返回 hook.memoizedState 的值，而依赖项的比较使用的是`Object.is`API
+[mountMemo](https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L1427?_blank)与[updateMemo](https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L1438?_blank)，hook 都会调用 mountWorkInProgressHook 与 updateWorkInProgressHook 获取当前 hook，而 useMemo 的实现很简单，就是把传入的第一个参数的函数返回值与第二参数依赖项保存在 hook 的 memoizedState 里，然后 useMemo 返回当前的 nextValue，而更新时会先比较依赖项是否有变化，有重新调用第一个参数的函数，没有变化就返回 hook.memoizedState 的值，而依赖项的比较使用的是`Object.is`API
 
 源码:
 
@@ -256,7 +256,7 @@ hook.memoizedState = [callback, nextDeps];
 
 基本所有的 hook 的值都会保存在 memoizedState 里，但有些是没有 memoizedState 的，如 useContext
 
-而获取的当前 hook 都会调用 [mountWorkInProgressHook](https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L545) 与 [updateWorkInProgressHook](https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L566)，分别对应挂载时与更新时的调用
+而获取的当前 hook 都会调用 [mountWorkInProgressHook](https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L545?_blank) 与 [updateWorkInProgressHook](https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L566?_blank)，分别对应挂载时与更新时的调用
 
 而以上的 hook 已经满足大部分开发要求了，就算有新的 hook 出现，差不多也是基于以上的能力进行组装的
 
