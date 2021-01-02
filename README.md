@@ -14,7 +14,7 @@ hook.memoizedState：Hooks 链表中保存的单一 hook 对应的数据。
 
 而 fiber 保存了当前组件的所有状态信息，而初始化调用时组件内调用的每个 hook 都会进入 hook 链表里，hook 链表也是单向链表
 
-如 useState 的 初始化挂载时使用获取 hook 的 <a href="https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L545" target="_blank">mountWorkInProgressHook</a>[mountWorkInProgressHook](https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L545) 与 更新时调用的[updateWorkInProgressHook](https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L566?_blank)
+如 useState 的 初始化挂载时使用获取 hook 的 [mountWorkInProgressHook](https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L545) 与 更新时调用的[updateWorkInProgressHook](https://github.com/acdlite/react/blob/1fb18e22ae66fdb1dc127347e169e73948778e5a/packages/react-reconciler/src/ReactFiberHooks.new.js#L566?_blank)
 
 对应模拟代码的
 
